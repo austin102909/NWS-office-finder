@@ -3,6 +3,8 @@ const urlsToCache = [
     '/',
     '/index.html',
     '/icon.png',
+    '/icon-120.png',
+    '/icon-180.png',
     'https://cdn.tailwindcss.com'
 ];
 
