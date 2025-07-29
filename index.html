@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1e40af">
+    <title>NWS Office Finder</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icon.png">
+    <!-- Ensure icon.png is a 512x512 PNG (e.g., NWS logo or custom weather icon) -->
+    <!-- Note: The User-Agent email below is sent in API requests and visible in source code. Use a dedicated email for privacy if sharing publicly. -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+            animation: fadeIn 0.5s ease-out;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen flex flex-col items-center justify-center text-white p-4">
+    <div class="bg-white bg-opacity-10 backdrop-blur-lg rounded-2xl shadow-xl p-6 max-w-md w-full animate-fadeIn">
+        <h1 class="text-3xl font-bold text-center mb-4">NWS Office Finder</h1>
+        <p class="text-center mb-6 text-lg">Find your local NWS office for storm chasing!</p>
+        <button onclick="getLocation()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition duration-300">Find My NWS Office</button>
+        <div id="output" class="mt-6 text-center"></div>
+        <div id="error" class="mt-4 text-red-300 text-center"></div>
+        <div id="time" class="mt-6 text-center text-sm"></div>
+    </div>
+
+    <script>
+        // Update local and UTC (Zulu) time every second
+        function updateTime() {
+            const now = new Date();
+            const localTime = now.toLocaleString('en-US', { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, hour12: true });
+            const utcTime = now.toLocaleString('en-US', { timeZone: 'UTC', hour12: false }) + ' Zulu';
+            document.getElementById('time').innerHTML = `Local Time: ${localTime}<br>UTC Time: ${utcTime}`;
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        function getLocation() {
+            const output = document.getElementById('output');
+            const error = document.getElementById('error');
+            output.innerHTML = '<p class="text-yellow-200">Fetching your location...</p>';
+            error.innerHTML = '';
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    position => fetchNWSOffice(position.coords.latitude, position.coords.longitude),
+                    err => {
+                        error.innerHTML = `Error getting location: ${err.message}`;
+                        output.innerHTML = '';
+                    }
+                );
+            } else {
+                error.innerHTML = 'Geolocation is not supported by this browser.';
+                output.innerHTML = '';
+            }
+        }
+
+        async function fetchNWSOffice(lat, lon) {
+            const output = document.getElementById('output');
+            const error = document.getElementById('error');
+            const url = `https://api.weather.gov/points/${lat.toFixed(4)},${lon.toFixed(4)}`;
+
+            try {
+                const response = await fetch(url, {
+                    headers: { 'User-Agent': 'NWS Office Finder (n.texas.weather@gmail.com)' }
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                const data = await response.json();
+                const wfoId = data.properties.cwa;
+                const wfoInfo = getWfoInfo(wfoId);
+                output.innerHTML = `
+                    <p class="text-xl font-semibold">Your NWS Office: <strong>${wfoId}</strong> (${wfoInfo.name})</p>
+                    <p>Use <strong>@${wfoInfo.socialHandle}</strong> for tagging on X and Facebook.</p>
+                `;
+            } catch (err) {
+                error.innerHTML = `Error fetching NWS office: ${err.message}`;
+                output.innerHTML = '';
+            }
+        }
+
+        // Comprehensive mapping of WFO codes to names and social media handles
+        function getWfoInfo(wfoId) {
+            const wfoData = {
+                'ABR': { name: 'Aberdeen, SD', socialHandle: 'NWSAberdeen' },
+                'ABQ': { name: 'Albuquerque, NM', socialHandle: 'NWSAlbuquerque' },
+                'AFC': { name: 'Anchorage, AK', socialHandle: 'NWSAnchorage' },
+                'AJK': { name: 'Juneau, AK', socialHandle: 'NWSJuneau' },
+                'AKQ': { name: 'Wakefield, VA', socialHandle: 'NWSWakefield' },
+                'ALY': { name: 'Albany, NY', socialHandle: 'NWSAlbany' },
+                'AMA': { name: 'Amarillo, TX', socialHandle: 'NWSAmarillo' },
+                'ARX': { name: 'La Crosse, WI', socialHandle: 'NWSLaCrosse' },
+                'BGM': { name: 'Binghamton, NY', socialHandle: 'NWSBinghamton' },
+                'BIS': { name: 'Bismarck, ND', socialHandle: 'NWSBismarck' },
+                'BMX': { name: 'Birmingham, AL', socialHandle: 'NWSBirmingham' },
+                'BOI': { name: 'Boise, ID', socialHandle: 'NWSBoise' },
+                'BOU': { name: 'Boulder, CO', socialHandle: 'NWSBoulder' },
+                'BRO': { name: 'Brownsville, TX', socialHandle: 'NWSBrownsville' },
+                'BTV': { name: 'Burlington, VT', socialHandle: 'NWSBurlington' },
+                'BUF': { name: 'Buffalo, NY', socialHandle: 'NWSBuffalo' },
+                'BYZ': { name: 'Billings, MT', socialHandle: 'NWSBillings' },
+                'CAE': { name: 'Columbia, SC', socialHandle: 'NWSColumbia' },
+                'CAR': { name: 'Caribou, ME', socialHandle: 'NWSCaribou' },
+                'CHS': { name: 'Charleston, SC', socialHandle: 'NWSCharlestonSC' },
+                'CLE': { name: 'Cleveland, OH', socialHandle: 'NWSCleveland' },
+                'CRP': { name: 'Corpus Christi, TX', socialHandle: 'NWSCorpusChristi' },
+                'CYS': { name: 'Cheyenne, WY', socialHandle: 'NWSCheyenne' },
+                'DLH': { name: 'Duluth, MN', socialHandle: 'NWSDuluth' },
+                'DMX': { name: 'Des Moines, IA', socialHandle: 'NWSDesMoines' },
+                'DTX': { name: 'Detroit, MI', socialHandle: 'NWSDetroit' },
+                'DVN': { name: 'Davenport, IA', socialHandle: 'NWSQuadCities' },
+                'EAX': { name: 'Kansas City, MO', socialHandle: 'NWSKansasCity' },
+                'EKA': { name: 'Eureka, CA', socialHandle: 'NWSEureka' },
+                'EPZ': { name: 'El Paso, TX', socialHandle: 'NWSElPaso' },
+                'EWX': { name: 'Austin/San Antonio, TX', socialHandle: 'NWSAustinSanAntonio' },
+                'FCX': { name: 'Fairbanks, AK', socialHandle: 'NWSFairbanks' },
+                'FGZ': { name: 'Flagstaff, AZ', socialHandle: 'NWSFlagstaff' },
+                'FSD': { name: 'Sioux Falls, SD', socialHandle: 'NWSSiouxFalls' },
+                'FWD': { name: 'Fort Worth, TX', socialHandle: 'NWSFortWorth' },
+                'GGW': { name: 'Glasgow, MT', socialHandle: 'NWSGlasgow' },
+                'GID': { name: 'Hastings, NE', socialHandle: 'NWSHastings' },
+                'GJT': { name: 'Grand Junction, CO', socialHandle: 'NWSGrandJunction' },
+                'GLD': { name: 'Goodland, KS', socialHandle: 'NWSGoodland' },
+                'GRB': { name: 'Green Bay, WI', socialHandle: 'NWSGreenBay' },
+                'GRR': { name: 'Grand Rapids, MI', socialHandle: 'NWSGrandRapids' },
+                'GSP': { name: 'Greenville-Spartanburg, SC', socialHandle: 'NWSGreenvilleSpartanburg' },
+                'GUA': { name: 'Guam', socialHandle: 'NWSGuam' },
+                'HFO': { name: 'Honolulu, HI', socialHandle: 'NWSHonolulu' },
+                'HGX': { name: 'Houston/Galveston, TX', socialHandle: 'NWSHoustonGalveston' },
+                'HNX': { name: 'San Joaquin Valley, CA', socialHandle: 'NWSSanJoaquinValley' },
+                'HUN': { name: 'Huntsville, AL', socialHandle: 'NWSHuntsville' },
+                'ICT': { name: 'Wichita, KS', socialHandle: 'NWSWichita' },
+                'ILM': { name: 'Wilmington, NC', socialHandle: 'NWSWilmingtonNC' },
+                'ILN': { name: 'Wilmington, OH', socialHandle: 'NWSWilmingtonOH' },
+                'ILX': { name: 'Lincoln, IL', socialHandle: 'NWSLincoln' },
+                'IND': { name: 'Indianapolis, IN', socialHandle: 'NWSIndianapolis' },
+                'IWX': { name: 'Northern Indiana, IN', socialHandle: 'NWSNorthernIndiana' },
+                'JAN': { name: 'Jackson, MS', socialHandle: 'NWSJacksonMS' },
+                'JAX': { name: 'Jacksonville, FL', socialHandle: 'NWSJacksonville' },
+                'JKL': { name: 'Jackson, KY', socialHandle: 'NWSJacksonKY' },
+                'KEY': { name: 'Key West, FL', socialHandle: 'NWSKeyWest' },
+                'LBF': { name: 'North Platte, NE', socialHandle: 'NWSNorthPlatte' },
+                'LCH': { name: 'Lake Charles, LA', socialHandle: 'NWSLakeCharles' },
+                'LIX': { name: 'New Orleans/Baton Rouge, LA', socialHandle: 'NWSNewOrleans' },
+                'LMK': { name: 'Louisville, KY', socialHandle: 'NWSLouisville' },
+                'LOT': { name: 'Chicago, IL', socialHandle: 'NWSChicago' },
+                'LOX': { name: 'Los Angeles, CA', socialHandle: 'NWSLosAngeles' },
+                'LSX': { name: 'St. Louis, MO', socialHandle: 'NWSStLouis' },
+                'LUB': { name: 'Lubbock, TX', socialHandle: 'NWSLubbock' },
+                'LWX': { name: 'Baltimore/Washington, DC', socialHandle: 'NWSBaltimoreWashington' },
+                'MAF': { name: 'Midland/Odessa, TX', socialHandle: 'NWSMidlandOdessa' },
+                'MEG': { name: 'Memphis, TN', socialHandle: 'NWSMemphis' },
+                'MFL': { name: 'Miami, FL', socialHandle: 'NWSMiami' },
+                'MHX': { name: 'Newport/Morehead City, NC', socialHandle: 'NWSMoreheadCity' },
+                'MKX': { name: 'Milwaukee, WI', socialHandle: 'NWSMilwaukee' },
+                'MLB': { name: 'Melbourne, FL', socialHandle: 'NWSMelbourne' },
+                'MOB': { name: 'Mobile, AL', socialHandle: 'NWSMobile' },
+                'MPX': { name: 'Twin Cities, MN', socialHandle: 'NWSTwinCities' },
+                'MQT': { name: 'Marquette, MI', socialHandle: 'NWSMarquette' },
+                'MRX': { name: 'Morristown, TN', socialHandle: 'NWSMorristown' },
+                'MSO': { name: 'Missoula, MT', socialHandle: 'NWSMissoula' },
+                'MTR': { name: 'San Francisco, CA', socialHandle: 'NWSSanFrancisco' },
+                'OHX': { name: 'Nashville, TN', socialHandle: 'NWSNashville' },
+                'OKX': { name: 'New York City, NY', socialHandle: 'NWSNewYorkCity' },
+                'OUN': { name: 'Norman, OK', socialHandle: 'NWSNorman' },
+                'PAH': { name: 'Paducah, KY', socialHandle: 'NWSPaducah' },
+                'PBZ': { name: 'Pittsburgh, PA', socialHandle: 'NWSPittsburgh' },
+                'PDT': { name: 'Pendleton, OR', socialHandle: 'NWSPendleton' },
+                'PHI': { name: 'Mount Holly, NJ', socialHandle: 'NWSMountHolly' },
+                'PIH': { name: 'Pocatello, ID', socialHandle: 'NWSPocatello' },
+                'PQR': { name: 'Portland, OR', socialHandle: 'NWSPortland' },
+                'PSR': { name: 'Phoenix, AZ', socialHandle: 'NWSPhoenix' },
+                'PUB': { name: 'Pueblo, CO', socialHandle: 'NWSPueblo' },
+                'RAH': { name: 'Raleigh, NC', socialHandle: 'NWSRaleigh' },
+                'REV': { name: 'Reno, NV', socialHandle: 'NWSReno' },
+                'RIW': { name: 'Riverton, WY', socialHandle: 'NWSRiverton' },
+                'RLX': { name: 'Charleston, WV', socialHandle: 'NWSCharlestonWV' },
+                'RNK': { name: 'Blacksburg, VA', socialHandle: 'NWSBlacksburg' },
+                'SEW': { name: 'Seattle, WA', socialHandle: 'NWSSeattle' },
+                'SGX': { name: 'San Diego, CA', socialHandle: 'NWSSanDiego' },
+                'SHV': { name: 'Shreveport, LA', socialHandle: 'NWSShreveport' },
+                'SJT': { name: 'San Angelo, TX', socialHandle: 'NWSSanAngelo' },
+                'SLC': { name: 'Salt Lake City, UT', socialHandle: 'NWSSaltLakeCity' },
+                'STO': { name: 'Sacramento, CA', socialHandle: 'NWSSacramento' },
+                'TAE': { name: 'Tallahassee, FL', socialHandle: 'NWSTallahassee' },
+                'TBW': { name: 'Tampa Bay, FL', socialHandle: 'NWSTampaBay' },
+                'TFX': { name: 'Great Falls, MT', socialHandle: 'NWSGreatFalls' },
+                'TOP': { name: 'Topeka, KS', socialHandle: 'NWSTopeka' },
+                'TSA': { name: 'Tulsa, OK', socialHandle: 'NWSTulsa' },
+                'TWC': { name: 'Tucson, AZ', socialHandle: 'NWSTucson' },
+                'UNR': { name: 'Rapid City, SD', socialHandle: 'NWSRapidCity' },
+                'VEF': { name: 'Las Vegas, NV', socialHandle: 'NWSLasVegas' }
+            };
+            return wfoData[wfoId] || { name: 'Unknown Office', socialHandle: 'NWS' };
+        }
+
+        // Register service worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(reg => console.log('Service Worker registered'))
+                    .catch(err => console.log('Service Worker registration failed:', err));
+            });
+        }
+    </script>
+</body>
+</html>
